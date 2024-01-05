@@ -1,9 +1,12 @@
 ---
 - name: Set up NAS
   hosts: raspberries
-  vars_files: vars.yml
 
   tasks:
+    - name: Load secret vars
+      community.sops.load_vars:
+        file: vars.enc.yml
+
     - name: Install samba
       ansible.builtin.apt:
         update_cache: true
