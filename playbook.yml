@@ -1,0 +1,108 @@
+---
+- name: Set up NAS
+  hosts: raspberries
+  vars_files: vars.yml
+
+  tasks:
+    - name: Install samba
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - samba
+          - samba-common-bin
+      become: true
+
+    - name: Add group
+      ansible.builtin.group:
+        name: "{{ nas_user }}"
+        state: present
+      become: true
+
+    - name: Add user
+      ansible.builtin.user:
+        name: "{{ nas_user }}"
+        groups: "{{ nas_user }}"
+        shell: /sbin/nologin
+        create_home: false
+      become: true
+
+    - name: Mount harddrive
+      ansible.posix.mount:
+        path: "{{ mountpoint }}"
+        src: "{{ device }}"
+        state: mounted
+        fstype: ext4
+        opts: defaults,noatime
+      become: true
+
+    - name: Change ownership of mountpoint
+      ansible.builtin.file:
+        name: "{{ mountpoint }}"
+        state: directory
+        recurse: true
+        owner: "{{ nas_user }}"
+        group: "{{ nas_user }}"
+      become: true
+
+    - name: Create shared folder
+      ansible.builtin.file:
+        name: "{{ shared_dir }}"
+        state: directory
+        mode: "777"
+        owner: "{{ nas_user }}"
+        group: "{{ nas_user }}"
+      become: true
+
+    - name: Configure samba
+      become: true
+      notify:
+        - Restart smbd
+        - Restart nmbd
+      block:
+        - name: Configure user login
+          ansible.builtin.lineinfile:
+            path: /etc/samba/smb.conf
+            insertafter: '^\[global\]'
+            line: security = user
+
+        - name: Set workgroup
+          ansible.builtin.lineinfile:
+            path: /etc/samba/smb.conf
+            regexp: '.*workgroup = '
+            line: workgroup = SAMBA
+
+        - name: Configure shared folder in samba
+          ansible.builtin.blockinfile:
+            path: /etc/samba/smb.conf
+            block: |
+              [shared]
+              path = {{ shared_dir }}
+              browseable = yes
+              writeable = yes
+              valid users = {{ nas_user }}
+              create mask = 0777
+              directory mask = 0777
+              # public = no
+              # guest ok = no
+            prepend_newline: true
+
+    # - name: Set smb password
+    #   ansible.builtin.shell: >
+    #     set -e -o pipefail
+    #     && (echo '{{ nas_password }}'; echo '{{ nas_password }}') | smbpasswd -s -a {{ nas_user }}
+    #   register: output
+    #   changed_when: "'Added user' in output.stdout"
+    #   become: true
+
+  handlers:
+    - name: Restart smbd
+      ansible.builtin.systemd:
+        name: smbd
+        state: restarted
+      become: true
+
+    - name: Restart nmbd
+      ansible.builtin.systemd:
+        name: nmbd
+        state: restarted
+      become: true
