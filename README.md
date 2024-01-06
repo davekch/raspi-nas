@@ -2,7 +2,7 @@
 Ansible script to set up a simple NAS for a local network. Tested on a raspberry pi running Ubuntu server 22.04
 
 ## Setup
-1. Set the host- and username of your raspberry pi in the `raspberries` section in `hosts.
+1. Set the host- and username of your raspberry pi in the `raspberries` section in `hosts.ini`
 2. Install and setup [sops](https://github.com/getsops/sops). A basic `.sops.yaml` could look like this:
     ```yaml
     ---
@@ -13,7 +13,7 @@ Ansible script to set up a simple NAS for a local network. Tested on a raspberry
     ```yaml
     device: /dev/sdb1
     mountpoint: /mnt/sdb1
-    shared_dir: '{{ mountpoint }}/shared'
+    shared_dir: /mnt/sdb1/shared
     nas_user: nas-user
     nas_password: nas-user-password
     become_pass: raspberry-root-password
