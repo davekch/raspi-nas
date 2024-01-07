@@ -43,8 +43,6 @@
         name: "{{ mountpoint }}"
         state: directory
         recurse: true
-        owner: "{{ nas_user }}"
-        group: "{{ nas_user }}"
       become: true
 
     - name: Create shared folder
@@ -56,46 +54,24 @@
         group: "{{ nas_user }}"
       become: true
 
-    - name: Configure samba
+    - name: Copy config template
       become: true
+      ansible.builtin.template:
+        src: files/smb.j2.conf
+        dest: /etc/samba/smb.conf
+        mode: "644"
+        validate: testparm -s %s
       notify:
         - Restart smbd
         - Restart nmbd
-      block:
-        - name: Configure user login
-          ansible.builtin.lineinfile:
-            path: /etc/samba/smb.conf
-            insertafter: '^\[global\]'
-            line: security = user
 
-        - name: Set workgroup
-          ansible.builtin.lineinfile:
-            path: /etc/samba/smb.conf
-            regexp: '.*workgroup = '
-            line: workgroup = SAMBA
-
-        - name: Configure shared folder in samba
-          ansible.builtin.blockinfile:
-            path: /etc/samba/smb.conf
-            block: |
-              [shared]
-              path = {{ shared_dir }}
-              browseable = yes
-              writeable = yes
-              valid users = {{ nas_user }}
-              create mask = 0777
-              directory mask = 0777
-              # public = no
-              # guest ok = no
-            prepend_newline: true
-
-    # - name: Set smb password
-    #   ansible.builtin.shell: >
-    #     set -e -o pipefail
-    #     && (echo '{{ nas_password }}'; echo '{{ nas_password }}') | smbpasswd -s -a {{ nas_user }}
-    #   register: output
-    #   changed_when: "'Added user' in output.stdout"
-    #   become: true
+    - name: Set smb password
+      ansible.builtin.shell: >
+        set -e -o pipefail
+        && (echo '{{ nas_password }}'; echo '{{ nas_password }}') | smbpasswd -s -a {{ nas_user }}
+      register: output
+      changed_when: "'Added user' in output.stdout"
+      become: true
 
   handlers:
     - name: Restart smbd
