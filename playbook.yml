@@ -32,7 +32,7 @@
     - name: Mount harddrive
       ansible.posix.mount:
         path: "{{ mountpoint }}"
-        src: "{{ device }}"
+        src: "UUID={{ device_uuid }}"
         state: mounted
         fstype: ext4
         opts: defaults,noatime
